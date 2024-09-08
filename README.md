@@ -27,6 +27,8 @@ Therefore, `/` have no associated byte cost.
 command     stack       effect
 ⁺           [N]         [N]: increment; N + 1
 ⁻           [N]         [N]: decrement; N - 1
+□           []          []: No-op
+"           []          [S]: pushes a string
 #           []          []: erases the current build string
 $           [X1,X2]     [X1]: drop top of stack
 +           [N1,N2]     [N]: addition; N1 + N2
@@ -42,6 +44,7 @@ c           [S1,S2]     [N]: S1 concatenated with S2
 d           []          []: interpret next literal section as compressed
 }           []          [S]: pushes the currently built string up til now
 ~           [X1,X2]     [X2,X1]: swap top two on stack
+⌂D          []          []: Debug
 ```
 
 ## 7-Bit code page

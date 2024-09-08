@@ -1,5 +1,6 @@
 // 
 const CODE_PAGE = "¬¡±×÷Œœµ«»¶ΣΠ§¡¿⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ□!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂";
+const codePageIndex = chr => " \n\r\t".includes(chr) ? chr.charCodeAt() : CODE_PAGE.indexOf(chr);
 
 const toBase = (n, base) => {
     n = BigInt(n);
@@ -38,20 +39,24 @@ const bytesToLiterateChoir = bytes => {
 };
 
 const choirLiterateToBytes = str => {
-    let isLiteral = true;
+    let isInstruction = true;
     let bytes = [];
     for(let [ ins ] of str.matchAll(/\/\/|./g)) {
         if(ins === "//") {
             ins = "/";
         }
         else if(ins === "/") {
-            isLiteral = !isLiteral;
+            isInstruction = !isInstruction;
             continue;
         }
         
-        let ord = CODE_PAGE.indexOf(ins);
-        ord += isLiteral << 7;
+        let ord = codePageIndex(ins);
+        ord += isInstruction << 7;
         bytes.push(ord);
+        
+        if(isInstruction && ins === '"') {
+            isInstruction = !isInstruction;
+        }
     }
     console.log(bytes);
     return bytes;
@@ -99,10 +104,15 @@ const longestPrefixInIndexTrie = (str, indexTrie) => {
     return { longestIndex, trieIndex };
 };
 
-const SHORT_WORDS_TRIE = indexTrieFromWordList(SHORT_WORDS);
-const WORDS_TRIE = indexTrieFromWordList(WORDS);
+let SHORT_WORDS_TRIE = null;
+let WORDS_TRIE = null;
+const initializeTries = () => {
+    SHORT_WORDS_TRIE ||= indexTrieFromWordList(SHORT_WORDS);
+    WORDS_TRIE ||= indexTrieFromWordList(WORDS);
+};
 
 const compressStringToBigInt = str => {
+    initializeTries();
     // console.log("-------------- COMPRESSING --------------");
     
     // isolate into parts
@@ -363,7 +373,10 @@ const CHOIR_COMMANDS = {
     // ⁿ
     // □
     // !
-    // "
+    '"': function startQuote() {
+        this.pushNextLiteralSection = true;
+        return CHOIR_NORETURN;
+    },
     "#": function eraseBuildString() {
         this.buildString = "";
         return CHOIR_NORETURN;
@@ -374,12 +387,12 @@ const CHOIR_COMMANDS = {
     // '
     // (
     // )
-    // *
+    "*": function add(n1, n2) { return +n1 * +n2; },
     "+": function add(n1, n2) { return +n1 + +n2; },
     // ,
     "-": function subtract(n1, n2) { return +n1 - +n2; },
     // .
-    // /
+    "/": function add(n1, n2) { return +n1 / +n2; },
     // 0
     // 1
     // 2
@@ -503,6 +516,11 @@ const CHOIR_COMMANDS = {
     },
     // ~
     // ⌂
+    "⌂D": function debug() {
+        console.log("DEBUGGING!");
+        console.log(this.stack);
+        return CHOIR_NORETURN;
+    },
 };
 
 const evalChoir = (commands, input) => {
@@ -511,6 +529,7 @@ const evalChoir = (commands, input) => {
     let state = {
         buildString: "",
         compressMode: 0,
+        pushNextLiteralSection: false,
         stack: [],
         popBuildString() {
             let save = this.buildString;
@@ -533,10 +552,14 @@ const evalChoir = (commands, input) => {
             this.stack = [];
         },
         endInstructionSection() {
+            if(this.pushNextLiteralSection) {
+                return;
+            }
             let value = this.stack.length ? this.pop() : CHOIR_NORETURN;
             if(value !== CHOIR_NORETURN) {
                 this.buildString += value;
             }
+            state.resetForNewSection();
         },
         popArguments(n) {
             let args = [];
@@ -551,12 +574,13 @@ const evalChoir = (commands, input) => {
     for(let { isLiteral, commands } of sections) {
         if(isLiteral) {
             console.log("Appending literal section", commands, "under", state.compressMode);
+            let result;
             if(state.compressMode === 0) {
-                state.buildString += commands;
+                result = commands;
             }
             else if(state.compressMode === 1) {
                 let totalBits = [...commands].flatMap(chr => {
-                    let bits = toBase(CODE_PAGE.indexOf(chr), 2);
+                    let bits = toBase(codePageIndex(chr), 2);
                     while(bits.length < 7) {
                         bits.unshift(0);
                     }
@@ -564,16 +588,23 @@ const evalChoir = (commands, input) => {
                 });
                 let n = fromBase(totalBits, 2);
                 console.log(totalBits, n);
-                state.buildString += decompressStringFromBigInt(n);
+                result = decompressStringFromBigInt(n);
             }
             else {
                 console.warn("Unhandled compress mode:", state.compressMode);
             }
+            if(state.pushNextLiteralSection) {
+                state.pushNextLiteralSection = false;
+                console.log("Pushing net literal section", commands);
+                state.stack.push(commands);
+            }
+            else {
+                state.buildString += commands;
+            }
             state.compressMode = 0; // reset
         }
         else {
-            state.resetForNewSection();
-            for(let [ command, digits ] of commands.matchAll(/([0-9]+)|./g)) {
+            for(let [ command, digits ] of commands.matchAll(/([0-9]+)|⌂.|./g)) {
                 console.log(command);
                 let fn = CHOIR_COMMANDS[command];
                 if(fn) {
