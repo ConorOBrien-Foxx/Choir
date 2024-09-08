@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="words_alpha.js"></script>
+    <script src="choir.js"></script>
+    <title>Choir</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+    :root {
+        --text-color: white;
+        --bg-color: #292343;
+        --bg-dark-color: #39315E;
+        --highlight-color: #23F0C7;
+    }
+    html {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+    }
+    html, textarea, button {
+        font-family: "Inter", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 400;
+        font-style: normal;
+    }
+    textarea, button {
+        font-family: "Fira Mono", monospace;
+        font-weight: 400;
+        font-style: normal;
+        color: var(--text-color);
+        border: 2px solid var(--highlight-color);
+        border-radius: 7px;
+        background-color: var(--bg-dark-color);
+    }
+    button {
+        padding: 8px;
+        cursor: pointer;
+    }
+    h1, h2, h3 {
+        margin: 0;
+    }
+    textarea, button {
+        padding: 8px;
+        font-size: 20px;
+    }
+    textarea {
+        width: 40%;
+        height: 6em;
+        display: block;
+    }
+    .input-flex {
+        display: flex;
+        gap: 15px;
+    }
+    .input-flex > div {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .input-flex textarea {
+        width: auto;
+    }
+    
+    .with-buttons {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    </style>
+</head>
+<body>
+    <h1 class="with-buttons" id="snippetHolder">Choir</h1>
+    <div class="input-flex">
+        <div>
+            <h2>Literate Code</h2>
+            <textarea id="code"></textarea>
+        </div>
+        <div>
+            <h2 id="bytesHeader">Bytes</h2>
+            <textarea id="byteCode"></textarea>
+        </div>
+    </div>
+    <button id="submit">Go</button>
+    <div class="input-flex">
+        <div>
+            <h2>Input</h2>
+            <textarea id="input"></textarea>
+        </div>
+        <div>
+            <h2>Output</h2>
+            <textarea readonly id="output"></textarea>
+        </div>
+    </div>
+    <script>
+        output.value = "";
+        submit.addEventListener("click", ev => {
+            console.log("code:", code.value);
+            let bytes = choirLiterateToBytes(code.value);
+            console.log("bytes:", bytes);
+            let result = evalChoir(bytes, input.value);
+            console.log("result:", result);
+            output.value = result.buildString;
+        });
+        
+        let snippets = [
+            { code: "d/¡48bJDs/t", input: "" },
+            { code: "2H/.../2T", input: "AdmBorkBork" },
+            { code: ":d/n⁶0/I/me", input: "3" },
+        ];
+        snippets.forEach((el, idx) => {
+            let button = document.createElement("button");
+            button.textContent = idx + 1;
+            button.addEventListener("click", function () {
+                code.value = el.code;
+                input.value = el.input;
+                output.value = "";
+                updateByteDisplay();
+            });
+            snippetHolder.appendChild(button);
+        });
+        const updateByteDisplay = () => {
+            let bytes = choirLiterateToBytes(code.value)
+            byteCode.value = bytes.map(val => val.toString(16).padStart(2, "0")).join(" ");
+            bytesHeader.textContent = `Bytes (${bytes.length})`;
+        };
+        code.addEventListener("input", updateByteDisplay);
+        updateByteDisplay();
+    </script>
+</body>
+</html>
