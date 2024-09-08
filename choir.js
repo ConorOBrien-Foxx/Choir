@@ -1,6 +1,15 @@
 // 
-const CODE_PAGE = "¬¡±×÷Œœµ«»¶ΣΠ§¡¿⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ□!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂";
-const codePageIndex = chr => " \n\r\t".includes(chr) ? chr.charCodeAt() : CODE_PAGE.indexOf(chr);
+const CODE_PAGE = "¬…±×÷Œœµ«»¶ΣΠ§¡¿⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ□!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂";
+const codePageIndex = chr =>
+    " \n\r\t".includes(chr)
+        ? chr.charCodeAt()
+        : CODE_PAGE.indexOf(chr);
+const readableByteToCodePage = byt =>
+    [32, 10, 13, 8].includes(byt)
+        ? String.fromCharCode(byt)
+        : CODE_PAGE[byt];
+const normalizeChoirOutput = str =>
+    [...str].map(codePageIndex).map(readableByteToCodePage).join("");
 
 const toBase = (n, base) => {
     n = BigInt(n);
@@ -41,8 +50,8 @@ const bytesToLiterateChoir = bytes => {
 const choirLiterateToBytes = str => {
     let isInstruction = true;
     let bytes = [];
-    for(let [ ins ] of str.matchAll(/\/\/|./g)) {
-        if(ins === "//") {
+    for(let [ ins ] of str.matchAll(/\\\/|./g)) {
+        if(ins === "\\/") {
             ins = "/";
         }
         else if(ins === "/") {
@@ -58,7 +67,7 @@ const choirLiterateToBytes = str => {
             isInstruction = !isInstruction;
         }
     }
-    console.log(bytes);
+    // console.log(bytes);
     return bytes;
 };
 
@@ -178,7 +187,7 @@ const compressStringToBigInt = str => {
     for(let part of parts) {
         let { word } = part;
         let interpretMode = 0n;
-        if(word.length === 1) {
+        if(word.length === 1 && !part.spaceStart) {
             if(word < ' ' || word > '~') {
                 console.warn("Cannot encode character", word);
                 word = ' ';
@@ -291,7 +300,14 @@ const decompressStringFromBigInt = n => {
 };
 
 const compressString = str => {
-    let n = compressStringToBigInt(str);
+    let n;
+    if(typeof str === "string") {
+        n = compressStringToBigInt(str);
+    }
+    else {
+        n = str;
+    }
+    
     let bits = toBase(n, 2).map(n => Number(n));
     
     let mode1 = [ 0b10000000 + "d".charCodeAt() ];
@@ -340,7 +356,7 @@ const extractChoirSections = commands => {
 const CHOIR_NORETURN = Symbol("CHOIR_NORETURN");
 const CHOIR_COMMANDS = {
     // ¬
-    // ¡
+    // …
     // ±
     // ×
     // ÷
@@ -453,7 +469,9 @@ const CHOIR_COMMANDS = {
     // P
     // Q
     // R
-    // S
+    "S": function pushSpace() {
+        return " ";
+    },
     "T": function head(s, n) { 
         if(typeof s === "number" && typeof n === "string") {
             [ s, n ] = [ n, s ];
@@ -475,8 +493,11 @@ const CHOIR_COMMANDS = {
     // `
     // a
     // b
+    "b": function reverseConcatenate(s1, s2) {
+        return "" + s2 + s1;
+    },
     "c": function concatenate(s1, s2) {
-        return s1 + s2;
+        return "" + s1 + s2;
     },
     "d": function setCompressMode1() {
         this.compressMode = 1;
@@ -486,7 +507,9 @@ const CHOIR_COMMANDS = {
     // f
     // g
     // h
-    // i
+    "i": function initialUpperCase(s) {
+        return s && s[0].toUpperCase() + s.slice(1).toLowerCase();
+    },
     // j
     // k
     // l
@@ -514,7 +537,10 @@ const CHOIR_COMMANDS = {
         this.buildString = "";
         return save;
     },
-    // ~
+    "~": function swapTopTwo(a, b) {
+        this.stack.push(b);
+        return a;
+    },
     // ⌂
     "⌂D": function debug() {
         console.log("DEBUGGING!");
@@ -531,25 +557,32 @@ const evalChoir = (commands, input) => {
         compressMode: 0,
         pushNextLiteralSection: false,
         stack: [],
+        inputs: input.split("\n"),
+        inputIndex: 0,
         popBuildString() {
             let save = this.buildString;
             this.buildString = "";
             return save;
         },
         pop() {
-            // TODO: multiple inputs; reset inputs index on new sections
-            return this.stack.length
-                ? this.stack.pop()
-                : input
-                    ? input
-                    : this.popBuildString();
+            if(this.stack.length) {
+                return this.stack.pop();
+            }
+            if(this.inputIndex < this.inputs.length) {
+                return this.inputs[this.inputIndex++];
+            }
+            else {
+                return this.popBuildString();
+            }
         },
         peek() {
-            // TODO: multiple inputs; reset inputs index on new sections
-            return this.stack.length ? this.stack.at(-1) : input || this.buildString;
+            return this.stack.length
+                ? this.stack.at(-1)
+                : this.inputs[this.inputIndex] || this.buildString;
         },
         resetForNewSection() {
             this.stack = [];
+            this.inputIndex = 0;
         },
         endInstructionSection() {
             if(this.pushNextLiteralSection) {
@@ -576,7 +609,7 @@ const evalChoir = (commands, input) => {
             console.log("Appending literal section", commands, "under", state.compressMode);
             let result;
             if(state.compressMode === 0) {
-                result = commands;
+                result = normalizeChoirOutput(commands);
             }
             else if(state.compressMode === 1) {
                 let totalBits = [...commands].flatMap(chr => {
@@ -586,6 +619,7 @@ const evalChoir = (commands, input) => {
                     }
                     return bits;
                 });
+                console.log("Total bits before decompression:", totalBits);
                 let n = fromBase(totalBits, 2);
                 console.log(totalBits, n);
                 result = decompressStringFromBigInt(n);
@@ -595,11 +629,11 @@ const evalChoir = (commands, input) => {
             }
             if(state.pushNextLiteralSection) {
                 state.pushNextLiteralSection = false;
-                console.log("Pushing net literal section", commands);
-                state.stack.push(commands);
+                console.log("Pushing net literal section", result);
+                state.stack.push(result);
             }
             else {
-                state.buildString += commands;
+                state.buildString += result;
             }
             state.compressMode = 0; // reset
         }

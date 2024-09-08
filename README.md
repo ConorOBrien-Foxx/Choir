@@ -39,10 +39,14 @@ C           [S,N]~      [C]: center; middle N characters of S
 H           [S,N]~      [S]: head; first N characters of S
 I           [N]         [N]: add 2; double increment; N + 2
 J           [N]         [N]: subtract 2; double decrement; N - 2
+S           []          [S]: pushes the space constant (" ")
 T           [S,N]~      [S]: tail; last N characters of S
-c           [S1,S2]     [N]: S1 concatenated with S2
+b           [S1,S2]     [S] reverse concatenation; S2 concatenated with S1
+c           [S1,S2]     [S]: S1 concatenated with S2
 d           []          []: interpret next literal section as compressed
-}           []          [S]: pushes the currently built string up til now
+i           [S]         [S]: initial case; first character in S is uppercased, rest lowercased
+t           [S]         [S]: title case; split S on spaces and initial case each word
+}           []          [S]: pops the currently built string up til now onto the stack
 ~           [X1,X2]     [X2,X1]: swap top two on stack
 ⌂D          []          []: Debug
 ```
@@ -51,7 +55,7 @@ d           []          []: interpret next literal section as compressed
 
 ```
   0123456789ABCDEF
-0 ¬¡±×÷Œœµ«»¶ΣΠ§¡¿
+0 ¬…±×÷Œœµ«»¶ΣΠ§¡¿
 1 ⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ
 2 □!"#$%&'()*+,-./
 3 0123456789:;<=>?
