@@ -21,34 +21,47 @@ Therefore, `/` have no associated byte cost.
 
 ## Instructions
 
-`N` refers to a number, `S` to a string, and `X` to anything. A tilde `~` indicates the argument order doesn't matter.
+`N` refers to a number, `S` to a string, and `X` to anything. A tilde `~` indicates the argument order doesn't matter. `N#` refers to a numeric argument that automatically casts strings to numbers.
 
 ```
 command     stack       effect
-⁺           [N]         [N]: increment; N + 1
-⁻           [N]         [N]: decrement; N - 1
+…           []          [...S]: pushes each character in the build string
+⁺           [N#]        [N]: increment; N + 1
+⁻           [N#]        [N]: decrement; N - 1
+¬           [X]         []: sets the ¬ register
+⁼           [X]         []: sets the ⁼ register
+ⁿ           [X]         []: sets the ⁿ register
 □           []          []: No-op
 "           []          [S]: pushes a string
 #           []          []: erases the current build string
 $           [X1,X2]     [X1]: drop top of stack
-+           [N1,N2]     [N]: addition; N1 + N2
--           [N1,N2]     [N]: subtract; N1 - N2
+'           []          [S]: pushes the next character as a string
++           [N1#,N2#]   [N]: addition; N1 + N2
+-           [N1#,N2#]   [N]: subtract; N1 - N2
 :           [X]         [X,X]: duplicate top of stack
 @           [S,N]~      [S]: Nth character in S
+A           []          [S]: push uppercase alphabet
 C           [S,N]~      [C]: center; middle N characters of S
 H           [S,N]~      [S]: head; first N characters of S
-I           [N]         [N]: add 2; double increment; N + 2
-J           [N]         [N]: subtract 2; double decrement; N - 2
+I           [N#]        [N]: add 2; double increment; N + 2
+J           [N#]        [N]: subtract 2; double decrement; N - 2
+R           [N#]        [A]: range [0,N) right exclusive
 S           []          [S]: pushes the space constant (" ")
 T           [S,N]~      [S]: tail; last N characters of S
+Z           []          [S]: pushes the ASCII constant (' '~r)
+a           []          [S]: push lowercase alphabet
 b           [S1,S2]     [S] reverse concatenation; S2 concatenated with S1
 c           [S1,S2]     [S]: S1 concatenated with S2
 d           []          []: interpret next literal section as compressed
 i           [S]         [S]: initial case; first character in S is uppercased, rest lowercased
+j           [A,S]~      [S]: joins array by string delimeter
+r           [N1,N2]     [A]: range from N1 to N2 (inclusive both ends)
+r           [S1,S2]     [S]: characters between S1 and S2 (inclusive both ends)
 t           [S]         [S]: title case; split S on spaces and initial case each word
 }           []          [S]: pops the currently built string up til now onto the stack
 ~           [X1,X2]     [X2,X1]: swap top two on stack
 ⌂D          []          []: Debug
+⌂t          [S]         [S]: APA-style title case
 ```
 
 ## 7-Bit code page

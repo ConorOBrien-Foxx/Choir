@@ -105,10 +105,31 @@
         });
         
         let snippets = [
-            { code: "d/¡48bJDs/t", input: "" },
-            { code: "2H/.../2T", input: "AdmBorkBork" },
-            { code: ":d/n⁶0/I/me", input: "3" },
-            { code: "/How much /:/ would a /b/ /~/ if a /b/ could /~/ /:/?", input: "wood\nchuck" },
+            {
+                code: "d/…48bJDs/t",
+                input: "",
+                comment: "Hello, World!",
+            },
+            {
+                code: "2H/.../2T",
+                input: "AdmBorkBork",
+                comment: "Simple abbreviation",
+            },
+            {
+                code: ":d/n⁶0/I/me",
+                input: "3",
+                comment: "2spooky4me",
+            },
+            {
+                code: "/How much /:/ would a /b/ /~/ if a /b/ could /~/ /:/?",
+                input: "wood\nchuck",
+                comment: "How much wood...",
+            },
+            {
+                code: "/Happy Birthday /⁼\"to You/c¬/¶¬¶⁼Dear Choir¶¬",
+                input: "",
+                comment: "Happy Birthday!",
+            },
         ];
         snippets.forEach((el, idx) => {
             let button = document.createElement("button");

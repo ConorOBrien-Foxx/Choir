@@ -11,6 +11,26 @@ const readableByteToCodePage = byt =>
 const normalizeChoirOutput = str =>
     [...str].map(codePageIndex).map(readableByteToCodePage).join("");
 
+// https://apastyle.apa.org/style-grammar-guidelines/capitalization/title-case
+// only 1-3 characters are too short (aka "minor words")
+const APA_MINOR_WORDS = [
+    // conjunctions; APA gives these as "examples", but they seem exhaustive
+    "and", "as", "but", "for", "if", "nor", "or", "so", "yet",
+    // articles
+    "a", "an", "the",
+    // prepositions
+    "as", "at", "by", "for", "in", "of", "off", "on", "per", "to", "up", "via",
+    // prepositions not listed by the e.g.
+    "vs",
+    // obviously, a simple program like this cannot capture the infinitude of English complexity
+    // we've excluded:
+    // - "bar", as in "bar none" (although IMO, as an American, this is mostly idiomatic, anyway)
+    // - "ere", as in, "ere break of day" (literary shortening of "before")
+    // - "o.", "o'er", "'mid", "abt.", and other shortenings which use punctuation
+    // - "out" (e.g. out the window), since this is contextually determined
+    // - latin "qua", "cum", etc.
+];
+
 const toBase = (n, base) => {
     n = BigInt(n);
     base = BigInt(base);
@@ -32,6 +52,11 @@ const fromBase = (arr, base) => {
     return output;
 };
 
+const titleCaseSingle = word =>
+    word
+        ? word[0].toUpperCase() + word.slice(1).toLowerCase()
+        : word;
+
 const bytesToLiterateChoir = bytes => {
     let isLiteral = true;
     let result = "";
@@ -42,7 +67,11 @@ const bytesToLiterateChoir = bytes => {
             isLiteral = currentIsLiteral;
         }
         let lower = byt & 0b01111111;
-        result += CODE_PAGE[lower];
+        let ch = CODE_PAGE[lower];
+        if(!isLiteral && ch === "/") {
+            result += "\\";
+        }
+        result += ch;
     }
     return result;
 };
@@ -50,7 +79,7 @@ const bytesToLiterateChoir = bytes => {
 const choirLiterateToBytes = str => {
     let isInstruction = true;
     let bytes = [];
-    for(let [ ins ] of str.matchAll(/\\\/|./g)) {
+    for(let [ ins ] of str.matchAll(/\\\/|[\s\S]/g)) {
         if(ins === "\\/") {
             ins = "/";
         }
@@ -355,8 +384,15 @@ const extractChoirSections = commands => {
 // TODO: BigInts
 const CHOIR_NORETURN = Symbol("CHOIR_NORETURN");
 const CHOIR_COMMANDS = {
-    // ¬
-    // …
+    "¬": function setNotRegister(s) {
+        this.registers["¬"] = s;
+        return s;
+    },
+    "…": function spreadBuildString() {
+        let str = this.popBuildString();
+        this.stack.push(...str);
+        return CHOIR_NORETURN;
+    },
     // ±
     // ×
     // ÷
@@ -383,10 +419,17 @@ const CHOIR_COMMANDS = {
     // ⁹
     "⁺": function increment(n) { return +n + 1; },
     "⁻": function decrement(n) { return +n - 1; },
-    // ⁼
+    "⁼": function setSupEqualsRegister(s) {
+        this.registers["⁼"] = s;
+        return s;
+    },
     // ⁽
     // ⁾
-    // ⁿ
+    "ⁿ": function setSupNRegister(s) {
+        // TODO: something with numbers?
+        this.registers["ⁿ"] = s;
+        return s;
+    },
     // □
     // !
     '"': function startQuote() {
@@ -409,16 +452,7 @@ const CHOIR_COMMANDS = {
     "-": function subtract(n1, n2) { return +n1 - +n2; },
     // .
     "/": function add(n1, n2) { return +n1 / +n2; },
-    // 0
-    // 1
-    // 2
-    // 3
-    // 4
-    // 5
-    // 6
-    // 7
-    // 8
-    // 9
+    // 0-9 excepted
     ":": function duplicate() {
         return this.peek();
     },
@@ -434,7 +468,9 @@ const CHOIR_COMMANDS = {
         
         return s[n];
     },
-    // A
+    "A": function pushUppercaseAlphabet() {
+        return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    },
     // B
     "C": function center(s, n) {
         if(typeof s === "number" && typeof n === "string") {
@@ -468,7 +504,9 @@ const CHOIR_COMMANDS = {
     // O
     // P
     // Q
-    // R
+    "R": function unirange(n) {
+        return CHOIR_COMMANDS.r(0, n - 1);
+    },
     "S": function pushSpace() {
         return " ";
     },
@@ -484,15 +522,18 @@ const CHOIR_COMMANDS = {
     // W
     // X
     // Y
-    // Z
+    "Z": function pushASCII() {
+        return " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+    },
     // [
     // \
     // ]
     // ^
     // _
     // `
-    // a
-    // b
+    "a": function pushLowercaseAlphabet() {
+        return "abcdefghijklmnopqrstuvwxyz";
+    },
     "b": function reverseConcatenate(s1, s2) {
         return "" + s2 + s1;
     },
@@ -510,7 +551,13 @@ const CHOIR_COMMANDS = {
     "i": function initialUpperCase(s) {
         return s && s[0].toUpperCase() + s.slice(1).toLowerCase();
     },
-    // j
+    "j": function joinBy(a, s) {
+        if(Array.isArray(s) && typeof a === "string") {
+            [ a, s ] = [ s, a ];
+        }
+        
+        return a.join(s);
+    },
     // k
     // l
     // m
@@ -518,11 +565,26 @@ const CHOIR_COMMANDS = {
     // o
     // p
     // q
-    // r
+    "r": function birange(n1, n2) {
+        if(n1 > n2) {
+            return CHOIR_COMMANDS.r(n2, n1);
+        }
+        if(typeof n1 === "string" && typeof n2 === "string") {
+            // TODO: better string range
+            return CHOIR_COMMANDS.r(n1.charCodeAt(0), n2.charCodeAt(0))
+                .map(n => String.fromCharCode(n))
+                .join("");
+        }
+        let arr = [];
+        for(let i = +n1; i <= +n2; i++) {
+            arr.push(i);
+        }
+        return arr;
+    },
     // s
     "t": function titleCase(s) {
         console.log("title case:", s);
-        return s.split(" ").map(word => word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word).join(" ");
+        return s.replace(/\w+/g, titleCaseSingle);
     },
     // u
     // v
@@ -547,6 +609,26 @@ const CHOIR_COMMANDS = {
         console.log(this.stack);
         return CHOIR_NORETURN;
     },
+    "⌂t": function APATitleCase(s) {
+        let isFirstWord = true;
+        
+        return s.replace(/([—-]|[:;.] )?(\w+)/g, (match, punct, word) => {
+            if(word === word.toUpperCase()) {
+                return match;
+            }
+            
+            word = word.toLowerCase();
+            
+            let capitalize = punct || isFirstWord || !APA_MINOR_WORDS.includes(word);
+            
+            isFirstWord = false;
+            
+            if(capitalize) {
+                word = titleCaseSingle(word);
+            }
+            return (punct ?? "") + word;
+        });
+    },
 };
 
 const evalChoir = (commands, input) => {
@@ -557,8 +639,11 @@ const evalChoir = (commands, input) => {
         compressMode: 0,
         pushNextLiteralSection: false,
         stack: [],
-        inputs: input.split("\n"),
+        inputs: input ? input.split("\n") : [],
         inputIndex: 0,
+        registers: {
+            "⁼": "",
+        },
         popBuildString() {
             let save = this.buildString;
             this.buildString = "";
@@ -609,6 +694,15 @@ const evalChoir = (commands, input) => {
             console.log("Appending literal section", commands, "under", state.compressMode);
             let result;
             if(state.compressMode === 0) {
+                if(state.registers["¬"] !== null) {
+                    commands = commands.replace(/¬/g, state.registers["¬"]);
+                }
+                if(state.registers["⁼"] !== null) {
+                    commands = commands.replace(/⁼/g, state.registers["⁼"]);
+                }
+                if(state.registers["ⁿ"] !== null) {
+                    commands = commands.replace(/ⁿ/g, state.registers["ⁿ"]);
+                }
                 result = normalizeChoirOutput(commands);
             }
             else if(state.compressMode === 1) {
@@ -638,7 +732,7 @@ const evalChoir = (commands, input) => {
             state.compressMode = 0; // reset
         }
         else {
-            for(let [ command, digits ] of commands.matchAll(/([0-9]+)|⌂.|./g)) {
+            for(let [ command, digits ] of commands.matchAll(/([0-9]+)|['⌂].|./g)) {
                 console.log(command);
                 let fn = CHOIR_COMMANDS[command];
                 if(fn) {
@@ -647,6 +741,9 @@ const evalChoir = (commands, input) => {
                     if(value !== CHOIR_NORETURN) {
                         state.stack.push(value);
                     }
+                }
+                else if(command[0] === "'") {
+                    state.stack.push(command.slice(1));
                 }
                 else if(digits) {
                     state.stack.push(+digits);
