@@ -354,11 +354,11 @@ const compressString = str => {
 const extractChoirSections = commands => {
     let sections = [];
     let section = {
-        isLiteral: true,
+        isLiteral: false,
         commands: "",
     };
     
-    let isLiteral = true;
+    let isLiteral = false;
     for(let cmd of commands) {
         let highBit   = cmd & 0b10000000;
         let lowerBits = cmd & 0b01111111;

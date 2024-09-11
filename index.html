@@ -25,7 +25,7 @@
         font-weight: 400;
         font-style: normal;
     }
-    textarea, button {
+    textarea, .textblock, button {
         font-family: "Fira Mono", monospace;
         font-weight: 400;
         font-style: normal;
@@ -41,11 +41,11 @@
     h1, h2, h3 {
         margin: 0;
     }
-    textarea, button {
+    textarea, .textblock, button {
         padding: 8px;
         font-size: 20px;
     }
-    textarea {
+    textarea, .textblock {
         width: 40%;
         height: 6em;
         display: block;
@@ -59,14 +59,27 @@
         display: flex;
         flex-direction: column;
     }
-    .input-flex textarea {
+    .input-flex textarea, .input-flex .textblock {
         width: auto;
+        display: block;
+    }
+    /* TODO: we want this thing to like, be the same size as the textareas in flex. but this is not currently the case. */
+    .textblock {
+        whitespace: pre-wrap;
     }
     
     .with-buttons {
         display: flex;
         align-items: center;
         gap: 5px;
+    }
+    
+    .literal {
+        color: #ccc;
+        <!-- font-style: italic; -->
+    }
+    .command {
+        text-decoration: overline;
     }
     </style>
 </head>
@@ -76,6 +89,10 @@
         <div>
             <h2>Literate Code</h2>
             <textarea id="code"></textarea>
+        </div>
+        <div>
+            <h2>Styled code</h2>
+            <div id="styledCode" class="textblock"></div>
         </div>
         <div>
             <h2 id="bytesHeader">Bytes</h2>
@@ -144,6 +161,22 @@
         });
         const updateByteDisplay = () => {
             let bytes = choirLiterateToBytes(code.value)
+            while(styledCode.firstChild) {
+                styledCode.removeChild(styledCode.firstChild);
+            }
+            let sections = extractChoirSections(bytes);
+            for(let { isLiteral, commands } of sections) {
+                let span = document.createElement("span");
+                span.textContent = normalizeChoirOutput(commands);
+                if(isLiteral) {
+                    span.classList.add("literal");
+                }
+                else {
+                    span.classList.add("command");
+                }
+                styledCode.appendChild(span);
+            }
+            
             byteCode.value = bytes.map(val => val.toString(16).padStart(2, "0")).join(" ");
             bytesHeader.textContent = `Bytes (${bytes.length})`;
         };
